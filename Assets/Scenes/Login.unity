@@ -7869,6 +7869,7 @@ MonoBehaviour:
   registerPassword: {fileID: 1961286765}
   registerConfirmPassword: {fileID: 610814108}
   userName: {fileID: 1403073640}
+  forgetEmail: {fileID: 1496285586}
   message: {fileID: 1135822343}
   rememberMe: {fileID: 2079930115}
 --- !u!1 &2111696499

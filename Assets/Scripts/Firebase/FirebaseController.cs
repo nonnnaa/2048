@@ -3,15 +3,16 @@ using Firebase.Extensions;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using System.Collections;
 using UnityEngine.SceneManagement;
-
+using Firebase;
 public class FirebaseController : MonoBehaviour
 {
-    FirebaseAuth auth;
-    FirebaseUser user;
+    public static FirebaseAuth auth;
+    public static FirebaseUser user;
     public GameObject loginPanel, registerPanel, forgetPasswordPanel;
 
-    public TMP_InputField loginEmail, loginPassword, registerEmail, registerPassword, registerConfirmPassword, userName;
+    public TMP_InputField loginEmail, loginPassword, registerEmail, registerPassword, registerConfirmPassword, userName, forgetEmail;
 
     public TextMeshProUGUI message;
 
@@ -23,17 +24,11 @@ public class FirebaseController : MonoBehaviour
             var dependencyStatus = task.Result;
             if (dependencyStatus == Firebase.DependencyStatus.Available)
             {
-                // Create and hold a reference to your FirebaseApp,
-                // where app is a Firebase.FirebaseApp property of your application class.
                 InitializeFirebase();
-
-                // Set a flag here to indicate whether Firebase is ready to use by your app.
             }
             else
             {
-                Debug.LogError(System.String.Format(
-                  "Could not resolve all Firebase dependencies: {0}", dependencyStatus));
-                // Firebase Unity SDK is not safe to use here.
+                Debug.LogError(System.String.Format("Could not resolve all Firebase dependencies: {0}", dependencyStatus));
             }
         });
     }
@@ -58,44 +53,34 @@ public class FirebaseController : MonoBehaviour
     }
     public void Login()
     {
-        if(string.IsNullOrEmpty(loginEmail.text) || string.IsNullOrEmpty(loginPassword.text))
-        {
-            Debug.Log("LOGIN");
-            ShowNotificationMessage("Error :", "Email or Password are invalid!");
-            return;
-        }
-        else
-        {        
-            // Do login
-            SignInUser(loginEmail.text, loginPassword.text);
-        }
+        StartCoroutine(SignInUser(loginEmail.text, loginPassword.text));
     }
     public void Register()
     {
-        if (string.IsNullOrEmpty(registerEmail.text) || 
-            string.IsNullOrEmpty(registerPassword.text) || 
-            string.IsNullOrEmpty(registerConfirmPassword.text))
-        {
-            ShowNotificationMessage("Error :", "Email or Password or Confirm Password are invalid!");
-            Debug.Log("REGISTER");
-            return;
-        }
-        else
-        {
-            // Do register
-            CreateUser(registerEmail.text, registerPassword.text, userName.text);
-        } 
+       StartCoroutine(CreateUser(registerEmail.text, registerPassword.text, userName.text));
     }
-
-
-    public void ForgetPassword()
-    {
-        Debug.Log("Forget password");
-    }
-
     public void SubmitEmail()
     {
         Debug.Log("Submit email!");
+        Debug.Log("Forget password");
+        string emailAddress = forgetEmail.text;
+        if (user != null)
+        {
+            auth.SendPasswordResetEmailAsync(emailAddress).ContinueWith(task => {
+                if (task.IsCanceled)
+                {
+                    Debug.LogError("SendPasswordResetEmailAsync was canceled.");
+                    return;
+                }
+                if (task.IsFaulted)
+                {
+                    Debug.LogError("SendPasswordResetEmailAsync encountered an error: " + task.Exception);
+                    return;
+                }
+                Debug.Log("Password reset email sent successfully.");
+            });
+            OpenLoginPanel();
+        }
     }
 
     public void ShowNotificationMessage(string title, string mes)
@@ -103,51 +88,87 @@ public class FirebaseController : MonoBehaviour
         message.text = title + " " + mes;
     }
 
-    public void CreateUser(string email, string password, string name)
+    private IEnumerator CreateUser(string email, string password, string name)
     {
-        auth.CreateUserWithEmailAndPasswordAsync(email, password).ContinueWith(task =>
-        {
-            if (task.IsCanceled)
-            {
-                Debug.LogError("CreateUserWithEmailAndPasswordAsync was canceled.");
-                ShowNotificationMessage("Error :", "Register failed!");
-                return;
-            }
-            if (task.IsFaulted)
-            {
-                Debug.LogError("CreateUserWithEmailAndPasswordAsync encountered an error: " + task.Exception);
-                ShowNotificationMessage("Error :", "Register failed!");
-                return;
-            }
+        if (name.Length > 10) yield return null;
+        var registerTask = auth.CreateUserWithEmailAndPasswordAsync(email, password);
 
-            // Firebase user has been created.
-            AuthResult result = task.Result;
-            Debug.LogFormat("Firebase user created successfully: {0} ({1})",
-                result.User.DisplayName, result.User.UserId);
+        yield return new WaitUntil(() => registerTask.IsCompleted);
+
+        if (registerTask.Exception != null)
+        {
+            FirebaseException firebaseException = registerTask.Exception.GetBaseException() as FirebaseException;
+            AuthError authError = (AuthError)firebaseException.ErrorCode;
+            string failedMessage = "";
+            switch (authError)
+            {
+                case AuthError.InvalidEmail:
+                    failedMessage += "Email is invalid";
+                    break;
+                case AuthError.EmailAlreadyInUse:
+                    failedMessage += "Email Already in use";
+                    break;
+                case AuthError.MissingEmail:
+                    failedMessage += "Email is missing";
+                    break;
+                case AuthError.MissingPassword:
+                    failedMessage += "Password is missing";
+                    break;
+                default:
+                    failedMessage = "Login Failed";
+                    break;
+            }
+            ShowNotificationMessage("Error :", failedMessage);
+            Debug.Log(failedMessage);
+        }
+        else
+        {
             UpdateUserProfile(name);
-        });
+            OpenLoginPanel();
+        }
     }
-    public void SignInUser(string email, string password)
+
+    IEnumerator SignInUser(string email, string password)
     {
-        auth.SignInWithEmailAndPasswordAsync(email, password).ContinueWith(task => {
-            if (task.IsCanceled)
+        var loginTask = auth.SignInWithEmailAndPasswordAsync(email, password);
+
+        yield return new WaitUntil(() => loginTask.IsCompleted);
+
+        if (loginTask.Exception != null)
+        {
+            Debug.LogError(loginTask.Exception);
+
+            FirebaseException firebaseException = loginTask.Exception.GetBaseException() as FirebaseException;
+            AuthError authError = (AuthError)firebaseException.ErrorCode;
+            string failedMessage = "";
+
+            switch (authError)
             {
-                Debug.LogError("SignInWithEmailAndPasswordAsync was canceled.");
-                ShowNotificationMessage("Error :", "Login failed!");
-                return;
+                case AuthError.InvalidEmail:
+                    failedMessage += "Email is invalid";
+                    break;
+                case AuthError.WrongPassword:
+                    failedMessage += "Wrong Password";
+                    break;
+                case AuthError.MissingEmail:
+                    failedMessage += "Email is missing";
+                    break;
+                case AuthError.MissingPassword:
+                    failedMessage += "Password is missing";
+                    break;
+                default:
+                    failedMessage = "Login Failed";
+                    break;
             }
-            if (task.IsFaulted)
-            {
-                Debug.LogError("SignInWithEmailAndPasswordAsync encountered an error: " + task.Exception);
-                ShowNotificationMessage("Error :", "Login failed!");
-                return;
-            }
-            AuthResult result = task.Result;
-            Debug.LogFormat("User signed in successfully: {0} ({1})",
-                result.User.DisplayName, result.User.UserId);
-            SceneManager.LoadScene(1);
-            Debug.Log("Load Game");
-        });
+            ShowNotificationMessage("Error :", failedMessage);
+            Debug.Log(failedMessage);
+        }
+        else
+        {
+            var result = loginTask.Result;
+            Debug.LogFormat("{0} You Are Successfully Logged In", user.DisplayName);
+            SceneManager.LoadScene("2048");
+        }
     }
 
     void InitializeFirebase()
@@ -207,5 +228,4 @@ public class FirebaseController : MonoBehaviour
             });
         }
     }
-
 }

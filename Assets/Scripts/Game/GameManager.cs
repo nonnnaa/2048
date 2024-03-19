@@ -1,6 +1,7 @@
 using System.Collections;
 using TMPro;
 using UnityEngine;
+using Firebase.Auth;
 
 public class GameManager : MonoBehaviour
 {
@@ -10,7 +11,8 @@ public class GameManager : MonoBehaviour
     [SerializeField] private CanvasGroup gameOver;
     [SerializeField] private TextMeshProUGUI scoreText;
     [SerializeField] private TextMeshProUGUI hiscoreText;
-
+    [SerializeField] private TextMeshProUGUI UserName;
+    [SerializeField] private TMP_InputField changeUserNameInputField;
     private int score;
     public int Score => score;
 
@@ -20,7 +22,6 @@ public class GameManager : MonoBehaviour
             DestroyImmediate(gameObject);
         } else {
             Instance = this;
-            DontDestroyOnLoad(gameObject);
         }
     }
 
@@ -44,6 +45,7 @@ public class GameManager : MonoBehaviour
         board.CreateTile();
         board.CreateTile();
         board.enabled = true;
+        UserName.text = FirebaseAuth.DefaultInstance.CurrentUser.DisplayName;
     }
 
     public void GameOver()
@@ -99,4 +101,46 @@ public class GameManager : MonoBehaviour
         return PlayerPrefs.GetInt("hiscore", 0);
     }
 
+
+    public void ChangeUserName()
+    {
+        changeUserNameInputField.gameObject.SetActive(true);
+    }
+
+    public void EnterChangeUserName()
+    {
+        StartCoroutine(EnterChange());
+    }
+    IEnumerator EnterChange()
+    {
+        if (changeUserNameInputField.text.Length < 10 && changeUserNameInputField.text.Length > 0)
+        {
+            FirebaseUser user = FirebaseAuth.DefaultInstance.CurrentUser;
+            if (user != null)
+            {
+                UserProfile profile = new UserProfile
+                {
+                    DisplayName = changeUserNameInputField.text,
+                    PhotoUrl = new System.Uri("https://placehold.co/600x400"),
+                };
+                var tmp = user.UpdateUserProfileAsync(profile).ContinueWith(task => {
+                    if (task.IsCanceled)
+                    {
+                        Debug.LogError("UpdateUserProfileAsync was canceled.");
+                        return;
+                    }
+                    if (task.IsFaulted)
+                    {
+                        Debug.LogError("UpdateUserProfileAsync encountered an error: " + task.Exception);
+                        return;
+                    }
+                    Debug.Log("User profile updated successfully.");
+                });
+                yield return new WaitUntil(() => tmp.IsCompleted);
+            }
+
+        }
+        changeUserNameInputField.gameObject.SetActive(false);
+        UserName.text = FirebaseAuth.DefaultInstance.CurrentUser.DisplayName;
+    }
 }
