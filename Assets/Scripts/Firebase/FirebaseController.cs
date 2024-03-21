@@ -61,8 +61,6 @@ public class FirebaseController : MonoBehaviour
     }
     public void SubmitEmail()
     {
-        Debug.Log("Submit email!");
-        Debug.Log("Forget password");
         string emailAddress = forgetEmail.text;
         if (user != null)
         {
@@ -70,19 +68,21 @@ public class FirebaseController : MonoBehaviour
                 if (task.IsCanceled)
                 {
                     Debug.LogError("SendPasswordResetEmailAsync was canceled.");
+                    ShowNotificationMessage("Error :", "SendPasswordResetEmailAsync was canceled");
                     return;
                 }
                 if (task.IsFaulted)
                 {
                     Debug.LogError("SendPasswordResetEmailAsync encountered an error: " + task.Exception);
+                    ShowNotificationMessage("Error :", task.Exception.ToString());
                     return;
                 }
                 Debug.Log("Password reset email sent successfully.");
             });
+            ShowNotificationMessage("Submited !", "");
             OpenLoginPanel();
         }
     }
-
     public void ShowNotificationMessage(string title, string mes)
     {
         message.text = title + " " + mes;
