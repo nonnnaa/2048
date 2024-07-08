@@ -4,7 +4,6 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using System.Collections;
-using UnityEngine.SceneManagement;
 using Firebase;
 public class FirebaseController : MonoBehaviour
 {
@@ -20,9 +19,9 @@ public class FirebaseController : MonoBehaviour
 
     private void Awake()
     {
-        Firebase.FirebaseApp.CheckAndFixDependenciesAsync().ContinueWithOnMainThread(task => {
+        FirebaseApp.CheckAndFixDependenciesAsync().ContinueWithOnMainThread(task => {
             var dependencyStatus = task.Result;
-            if (dependencyStatus == Firebase.DependencyStatus.Available)
+            if (dependencyStatus == DependencyStatus.Available)
             {
                 InitializeFirebase();
             }
@@ -31,6 +30,11 @@ public class FirebaseController : MonoBehaviour
                 Debug.LogError(System.String.Format("Could not resolve all Firebase dependencies: {0}", dependencyStatus));
             }
         });
+        if (GameManager.Instance.isRememberDataUser == "On")
+        {
+            loginEmail.text = GameManager.Instance.emailUser;
+            loginPassword.text = GameManager.Instance.passwordUser; 
+        }
     }
     public void OpenLoginPanel()
     {
@@ -67,17 +71,14 @@ public class FirebaseController : MonoBehaviour
             auth.SendPasswordResetEmailAsync(emailAddress).ContinueWith(task => {
                 if (task.IsCanceled)
                 {
-                    Debug.LogError("SendPasswordResetEmailAsync was canceled.");
                     ShowNotificationMessage("Error :", "SendPasswordResetEmailAsync was canceled");
                     return;
                 }
                 if (task.IsFaulted)
                 {
-                    Debug.LogError("SendPasswordResetEmailAsync encountered an error: " + task.Exception);
                     ShowNotificationMessage("Error :", task.Exception.ToString());
                     return;
                 }
-                Debug.Log("Password reset email sent successfully.");
             });
             ShowNotificationMessage("Submited !", "");
             OpenLoginPanel();
@@ -119,7 +120,6 @@ public class FirebaseController : MonoBehaviour
                     break;
             }
             ShowNotificationMessage("Error :", failedMessage);
-            Debug.Log(failedMessage);
         }
         else
         {
@@ -161,19 +161,24 @@ public class FirebaseController : MonoBehaviour
                     break;
             }
             ShowNotificationMessage("Error :", failedMessage);
-            Debug.Log(failedMessage);
         }
         else
         {
             var result = loginTask.Result;
-            Debug.LogFormat("{0} You Are Successfully Logged In", user.DisplayName);
-            SceneManager.LoadScene("2048");
+            if (rememberMe)
+            {
+                GameManager.Instance.emailUser = email;
+                GameManager.Instance.passwordUser = password;
+                GameManager.Instance.isRememberDataUser = "On";
+            }
+            else GameManager.Instance.isRememberDataUser = "Off";
+            GameManager.Instance.Load();
+            Debug.Log(result);
         }
     }
 
     void InitializeFirebase()
     {
-        Debug.Log("Setting up Firebase Auth");
         auth = FirebaseAuth.DefaultInstance;
         auth.StateChanged += AuthStateChanged;
         AuthStateChanged(this, null);
@@ -210,21 +215,17 @@ public class FirebaseController : MonoBehaviour
         {
             UserProfile profile = new UserProfile
             {
-                DisplayName = name,
-                PhotoUrl = new System.Uri("https://placehold.co/600x400"),
+                DisplayName = name
             };
             user.UpdateUserProfileAsync(profile).ContinueWith(task => {
                 if (task.IsCanceled)
                 {
-                    Debug.LogError("UpdateUserProfileAsync was canceled.");
                     return;
                 }
                 if (task.IsFaulted)
                 {
-                    Debug.LogError("UpdateUserProfileAsync encountered an error: " + task.Exception);
                     return;
                 }
-                Debug.Log("User profile updated successfully.");
             });
         }
     }

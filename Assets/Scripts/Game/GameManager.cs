@@ -2,17 +2,20 @@ using System.Collections;
 using TMPro;
 using UnityEngine;
 using Firebase.Auth;
+using System;
 
 public class GameManager : MonoBehaviour
 {
     public static GameManager Instance { get; private set; }
-
+    [SerializeField] private GameObject LoginUI, GameUI;
     [SerializeField] private TileBoard board;
     [SerializeField] private CanvasGroup gameOver;
     [SerializeField] private TextMeshProUGUI scoreText;
     [SerializeField] private TextMeshProUGUI hiscoreText;
     [SerializeField] private TextMeshProUGUI UserName;
     [SerializeField] private TMP_InputField changeUserNameInputField;
+    public string emailUser, passwordUser;
+    public string isRememberDataUser;
     private int score;
     public int Score => score;
 
@@ -23,11 +26,15 @@ public class GameManager : MonoBehaviour
         } else {
             Instance = this;
         }
+        if(PlayerPrefs.GetString(isRememberDataUser) == "On")
+        {
+
+        }
     }
 
     private void Start()
     {
-        NewGame();
+        
     }
 
     public void NewGame()
@@ -52,7 +59,6 @@ public class GameManager : MonoBehaviour
     {
         board.enabled = false;
         gameOver.interactable = true;
-
         StartCoroutine(Fade(gameOver, 1f, 1f));
     }
 
@@ -83,7 +89,6 @@ public class GameManager : MonoBehaviour
     {
         this.score = score;
         scoreText.text = score.ToString();
-
         SaveHiscore();
     }
 
@@ -120,8 +125,7 @@ public class GameManager : MonoBehaviour
             {
                 UserProfile profile = new UserProfile
                 {
-                    DisplayName = changeUserNameInputField.text,
-                    PhotoUrl = new System.Uri("https://placehold.co/600x400"),
+                    DisplayName = changeUserNameInputField.text
                 };
                 var tmp = user.UpdateUserProfileAsync(profile).ContinueWith(task => {
                     if (task.IsCanceled)
@@ -142,5 +146,23 @@ public class GameManager : MonoBehaviour
         }
         changeUserNameInputField.gameObject.SetActive(false);
         UserName.text = FirebaseAuth.DefaultInstance.CurrentUser.DisplayName;
+    }
+    private void OnApplicationQuit()
+    {
+        if (isRememberDataUser == "On")
+        {
+            PlayerPrefs.SetString(isRememberDataUser, "On");
+        }
+        else
+        {
+            PlayerPrefs.SetString(isRememberDataUser, "Off");
+            emailUser = passwordUser = null;
+        }
+    }
+    public void Load()
+    {
+        LoginUI.SetActive(!LoginUI.activeSelf);
+        GameUI.SetActive(!GameUI.activeSelf);
+        NewGame();
     }
 }
