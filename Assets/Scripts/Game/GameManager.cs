@@ -3,9 +3,20 @@ using TMPro;
 using UnityEngine;
 using Firebase.Auth;
 using System;
+using UnityEngine.UI;
+
+public static class CONSTANT
+{
+    public static string isRemember = "isRemember";
+    public static string userEmail = "userEmail";
+    public static string userPassword = "userPassword";
+}
+
 
 public class GameManager : MonoBehaviour
 {
+
+    public static event Action hidePassword, saveDataUser; 
     public static GameManager Instance { get; private set; }
     [SerializeField] private GameObject LoginUI, GameUI;
     [SerializeField] private TileBoard board;
@@ -17,37 +28,27 @@ public class GameManager : MonoBehaviour
     public string emailUser, passwordUser;
     public string isRememberDataUser;
     private int score;
+
     public int Score => score;
 
     private void Awake()
     {
         if (Instance != null) {
-            DestroyImmediate(gameObject);
+            Destroy(gameObject);
         } else {
             Instance = this;
         }
-        if(PlayerPrefs.GetString(isRememberDataUser) == "On")
-        {
-
-        }
-    }
-
-    private void Start()
-    {
-        
+        isRememberDataUser = PlayerPrefs.GetString(CONSTANT.isRemember);
     }
 
     public void NewGame()
     {
-        // reset score
         SetScore(0);
         hiscoreText.text = LoadHiscore().ToString();
 
-        // hide game over screen
         gameOver.alpha = 0f;
         gameOver.interactable = false;
 
-        // update board state
         board.ClearBoard();
         board.CreateTile();
         board.CreateTile();
@@ -151,18 +152,24 @@ public class GameManager : MonoBehaviour
     {
         if (isRememberDataUser == "On")
         {
-            PlayerPrefs.SetString(isRememberDataUser, "On");
+            PlayerPrefs.SetString(CONSTANT.isRemember, "On");
+            saveDataUser?.Invoke();
         }
         else
         {
-            PlayerPrefs.SetString(isRememberDataUser, "Off");
+            PlayerPrefs.SetString(CONSTANT.isRemember, "Off");
             emailUser = passwordUser = null;
         }
+    }
+    public void ExitGame()
+    {
+        Load();
     }
     public void Load()
     {
         LoginUI.SetActive(!LoginUI.activeSelf);
+        if(isRememberDataUser == "Off") hidePassword?.Invoke();
         GameUI.SetActive(!GameUI.activeSelf);
-        NewGame();
+        if(GameUI.activeSelf) NewGame();
     }
 }

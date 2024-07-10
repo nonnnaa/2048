@@ -15,8 +15,6 @@ public class FirebaseController : MonoBehaviour
 
     public TextMeshProUGUI message;
 
-    public Toggle rememberMe;
-
     private void Awake()
     {
         FirebaseApp.CheckAndFixDependenciesAsync().ContinueWithOnMainThread(task => {
@@ -30,10 +28,16 @@ public class FirebaseController : MonoBehaviour
                 Debug.LogError(System.String.Format("Could not resolve all Firebase dependencies: {0}", dependencyStatus));
             }
         });
-        if (GameManager.Instance.isRememberDataUser == "On")
+
+    }
+    private void Start()
+    {
+        GameManager.hidePassword += HidePassword;
+        GameManager.saveDataUser += SaveInfoUser;
+        if(GameManager.Instance.isRememberDataUser == "On")
         {
-            loginEmail.text = GameManager.Instance.emailUser;
-            loginPassword.text = GameManager.Instance.passwordUser; 
+            loginEmail.text = PlayerPrefs.GetString(CONSTANT.userEmail);
+            loginPassword.text = PlayerPrefs.GetString(CONSTANT.userPassword);
         }
     }
     public void OpenLoginPanel()
@@ -165,13 +169,8 @@ public class FirebaseController : MonoBehaviour
         else
         {
             var result = loginTask.Result;
-            if (rememberMe)
-            {
-                GameManager.Instance.emailUser = email;
-                GameManager.Instance.passwordUser = password;
-                GameManager.Instance.isRememberDataUser = "On";
-            }
-            else GameManager.Instance.isRememberDataUser = "Off";
+            GameManager.Instance.emailUser = loginEmail.text;
+            GameManager.Instance.passwordUser = loginPassword.text;
             GameManager.Instance.Load();
             Debug.Log(result);
         }
@@ -206,8 +205,6 @@ public class FirebaseController : MonoBehaviour
         auth.StateChanged -= AuthStateChanged;
         auth = null;
     }
-
-
     public void UpdateUserProfile(string name)
     {
         FirebaseUser user = auth.CurrentUser;
@@ -228,5 +225,25 @@ public class FirebaseController : MonoBehaviour
                 }
             });
         }
+    }
+    public void LogOut()
+    {
+        if(auth != null && user != null)
+        {
+            auth.SignOut();
+            GameManager.Instance.Load();
+            loginEmail.text = string.Empty;
+            HidePassword();
+        }
+    }
+    public void HidePassword()
+    {
+        loginPassword.text = string.Empty;
+    }
+
+    public void SaveInfoUser()
+    {
+        PlayerPrefs.SetString(CONSTANT.userEmail, GameManager.Instance.emailUser);
+        PlayerPrefs.SetString(CONSTANT.userPassword, GameManager.Instance.passwordUser);
     }
 }
